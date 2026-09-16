@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Google Reviews Scraper — Test local</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1e222b;
+    --border: #2a2f3a;
+    --text: #e8eaed;
+    --muted: #9aa1ac;
+    --accent: #4f8cff;
+    --accent-2: #34d399;
+    --danger: #f87171;
+    --warn: #fbbf24;
+    --star: #fbbf24;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+  }
+  .card h2 {
+    font-size: 15px;
+    margin: 0 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .badge {
+    font-size: 11px;
+    background: var(--panel-2);
+    color: var(--muted);
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+  }
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin: 12px 0 4px;
+  }
+  label:first-of-type { margin-top: 0; }
+  input[type="text"], input[type="number"], select, textarea {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+  textarea { resize: vertical; min-height: 90px; }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+  .examples {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .example-btn {
+    font-size: 11px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+  .example-btn:hover { border-color: var(--accent); color: var(--text); }
+  button.primary {
+    margin-top: 16px;
+    width: 100%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 11px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+  .status {
+    margin-top: 20px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .spinner {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: -2px;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .results { margin-top: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .biz-card {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .biz-card.error { border-color: var(--danger); }
+  .biz-card.warn { border-color: var(--warn); }
+  .biz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .biz-name { font-weight: 600; font-size: 14px; }
+  .biz-meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .biz-url { color: var(--muted); font-size: 11px; word-break: break-all; margin-top: 6px; }
+  .stats-row {
+    display: flex;
+    gap: 14px;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .stats-row b { color: var(--text); }
+  .sort-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .sort-badge.ok { background: rgba(52, 211, 153, 0.15); color: var(--accent-2); }
+  .sort-badge.warn { background: rgba(251, 191, 36, 0.15); color: var(--warn); }
+  .reviews-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .review {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+  .review-top { display: flex; justify-content: space-between; color: var(--muted); }
+  .review-author { color: var(--text); font-weight: 600; }
+  .stars { color: var(--star); letter-spacing: 1px; }
+  .review-text { margin-top: 4px; color: var(--text); }
+  .review-text:empty::after { content: "(sans commentaire)"; color: var(--muted); font-style: italic; }
+  .error-text { color: var(--danger); font-size: 12px; margin-top: 6px; }
+  details summary { cursor: pointer; font-size: 11px; color: var(--muted); margin-top: 10px; }
+  pre {
+    background: #0b0d11;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 11px;
+    overflow: auto;
+    max-height: 300px;
+  }
+  .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .toolbar input {
+    max-width: 260px;
+  }
+</style>
+</head>
+<body>
+
+<h1>🗺️ Google Reviews Scraper — Console de test</h1>
+<div class="sub">Interface locale pour tester l'API sur <span id="apiBase"></span></div>
+
+<div class="toolbar">
+  <label style="margin:0;">Clé API (si <code>API_SECRET</code> défini)&nbsp;</label>
+  <input type="text" id="apiKey" placeholder="x-api-key (optionnel)" />
+  <span class="badge" id="healthBadge">vérification…</span>
+  <span class="badge" id="poolBadge"></span>
+</div>
+
+<div class="grid">
+
+  <!-- SCRAPE UNIQUE -->
+  <div class="card">
+    <h2>Scrape unique <span class="badge">POST /scrape</span></h2>
+
+    <label>URL Google Maps</label>
+    <input type="text" id="singleUrl" placeholder="https://www.google.com/maps/place/..." />
+
+    <div class="examples" id="singleExamples"></div>
+
+    <div class="row">
+      <div>
+        <label>Nombre d'avis</label>
+        <input type="number" id="singleMax" value="10" min="1" max="200" />
+      </div>
+      <div>
+        <label>Tri</label>
+        <select id="singleSort">
+          <option value="recent">Récent</option>
+          <option value="relevant">Pertinent</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="primary" id="singleBtn">Scraper</button>
+    <div class="status" id="singleStatus"></div>
+    <div class="results" id="singleResults"></div>
+  </div>
+
+  <!-- BATCH -->
+  <div class="card">
+    <h2>Batch <span class="badge">POST /scrape-batch</span></h2>
+
+    <label>URLs Google Maps (une par ligne, max 10)</label>
+    <textarea id="batchUrls" placeholder="https://www.google.com/maps/place/...&#10;https://www.google.com/maps/place/..."></textarea>
+
+    <div class="examples" id="batchExamples"></div>
+
+    <div class="row">
+      <div>
+        <label>Nombre d'avis (défaut)</label>
+        <input type="number" id="batchMax" value="10" min="1" max="200" />
+      </div>
+      <div>
+        <label>Tri (défaut)</label>
+        <select id="batchSort">
+          <option value="recent">Récent</option>
+          <option value="relevant">Pertinent</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="primary" id="batchBtn">Lancer le batch</button>
+    <div class="status" id="batchStatus"></div>
+    <div class="results" id="batchResults"></div>
+  </div>
+
+</div>
+
+<script>
+const API_BASE = window.location.origin;
+document.getElementById('apiBase').textContent = API_BASE;
+
+const EXAMPLE_URLS = [
+  { label: "Jardin des Prébendes (Tours)", url: "https://www.google.com/maps/place/Jardin+des+Pr%C3%A9bendes+d'O%C3%A9/@47.3882048,0.6985889,3776m/data=!3m1!1e3!4m6!3m5!1s0x47fcd5c7d2bacbbd:0x2897adfc23aedc25!8m2!3d47.3850538!4d0.6841772!16s%2Fg%2F120hhs1h!5m1!1e1" },
+  { label: "Musée des Beaux-Arts de Tours", url: "https://www.google.com/maps/place/Mus%C3%A9e+des+Beaux-Arts+de+Tours/@47.3882048,0.6985889,3776m/data=!3m1!1e3!4m6!3m5!1s0x47fcd5b33de73cdb:0x8901c30c84e3cdc5!8m2!3d47.3947523!4d0.6941017!16s%2Fm%2F0g5qlfr!5m1!1e1" },
+  { label: "Hôpital Bicêtre AP-HP", url: "https://www.google.com/maps/place/H%C3%B4pital+Bic%C3%AAtre+AP-HP/@48.8168801,2.3406652,3673m/data=!3m2!1e3!5s0x47e6717994c5bd49:0x32bd58dc70143341!4m6!3m5!1s0x47e6717a248fe6f1:0x99a5bcf43a843bfd!8m2!3d48.8103296!4d2.3506637!16zL20vMDV2bHJx!5m1!1e1" }
+];
+
+function headers() {
+  const h = { 'Content-Type': 'application/json' };
+  const key = document.getElementById('apiKey').value.trim();
+  if (key) h['x-api-key'] = key;
+  return h;
+}
+
+async function checkHealth() {
+  const badge = document.getElementById('healthBadge');
+  const poolBadge = document.getElementById('poolBadge');
+  try {
+    const res = await fetch(API_BASE + '/health', { headers: headers() });
+    if (res.status === 401) {
+      badge.textContent = '🔒 clé API requise';
+      poolBadge.textContent = '';
+      return;
+    }
+    const data = await res.json();
+    badge.textContent = '✅ en ligne';
+    poolBadge.textContent = data.browsersOpen + '/' + data.maxBrowsers + ' navigateurs · ' +
+      data.activeTabs + '/' + data.maxConcurrentTabs + ' onglets actifs';
+  } catch (e) {
+    badge.textContent = '❌ serveur injoignable';
+    poolBadge.textContent = '';
+  }
+}
+checkHealth();
+setInterval(checkHealth, 10000);
+
+function renderExamples(containerId, onPick, multi) {
+  const el = document.getElementById(containerId);
+  EXAMPLE_URLS.forEach(ex => {
+    const btn = document.createElement('button');
+    btn.className = 'example-btn';
+    btn.type = 'button';
+    btn.textContent = ex.label;
+    btn.onclick = () => onPick(ex.url);
+    el.appendChild(btn);
+  });
+  if (multi) {
+    const allBtn = document.createElement('button');
+    allBtn.className = 'example-btn';
+    allBtn.type = 'button';
+    allBtn.textContent = "Toutes les URLs d'exemple";
+    allBtn.onclick = () => onPick(EXAMPLE_URLS.map(e => e.url).join('\n'));
+    el.appendChild(allBtn);
+  }
+}
+renderExamples('singleExamples', (url) => { document.getElementById('singleUrl').value = url; });
+renderExamples('batchExamples', (val) => { document.getElementById('batchUrls').value = val; }, true);
+
+function starString(n) {
+  n = Math.max(0, Math.min(5, n || 0));
+  return '★'.repeat(n) + '☆'.repeat(5 - n);
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[c]);
+}
+
+function renderBusinessCard(payload, sourceUrl) {
+  const wrap = document.createElement('div');
+  if (!payload || payload.success === false) {
+    wrap.className = 'biz-card error';
+    wrap.innerHTML =
+      '<div class="biz-header">' +
+        '<div>' +
+          '<div class="biz-name">Échec</div>' +
+          '<div class="biz-url">' + escapeHtml(sourceUrl || '') + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="error-text">' + escapeHtml((payload && payload.error) || 'Erreur inconnue') + '</div>';
+    return wrap;
+  }
+
+  const data = payload.data || payload;
+  const biz = data.business || {};
+  const stats = data.stats || {};
+  const reviews = data.reviews || [];
+  const sortConfirmed = data.sortConfirmed;
+
+  wrap.className = 'biz-card' + (sortConfirmed === false ? ' warn' : '');
+
+  const sortBadge = sortConfirmed === false
+    ? '<span class="sort-badge warn">⚠️ tri non confirmé</span>'
+    : (sortConfirmed === true ? '<span class="sort-badge ok">✅ tri confirmé</span>' : '');
+
+  wrap.innerHTML =
+    '<div class="biz-header">' +
+      '<div>' +
+        '<div class="biz-name">' + escapeHtml(biz.name ?? 'N/A') + '</div>' +
+        '<div class="biz-meta">⭐ ' + escapeHtml(biz.rating ?? 'N/A') + ' · ' + escapeHtml(biz.reviewCount ?? 'N/A') + '</div>' +
+        '<div class="biz-url">' + escapeHtml(data.resolvedUrl || sourceUrl || '') + '</div>' +
+      '</div>' +
+      sortBadge +
+    '</div>' +
+    '<div class="stats-row">' +
+      '<div>Récupérés: <b>' + (stats.totalRetrieved ?? 0) + '</b></div>' +
+      '<div>Moyenne échantillon: <b>' + (stats.averageRatingInSample ?? '—') + '</b></div>' +
+      '<div>Avec texte: <b>' + (stats.withTextComment ?? 0) + '</b></div>' +
+      '<div>Tri: <b>' + (data.sortedBy ?? '—') + '</b></div>' +
+    '</div>' +
+    '<div class="reviews-list"></div>' +
+    '<details>' +
+      '<summary>Voir le JSON brut</summary>' +
+      '<pre>' + escapeHtml(JSON.stringify(payload, null, 2)) + '</pre>' +
+    '</details>';
+
+  const list = wrap.querySelector('.reviews-list');
+  reviews.forEach(r => {
+    const div = document.createElement('div');
+    div.className = 'review';
+    div.innerHTML =
+      '<div class="review-top">' +
+        '<span class="review-author">' + escapeHtml(r.author || 'Anonyme') + '</span>' +
+        '<span>' + escapeHtml(r.date || '') + '</span>' +
+      '</div>' +
+      '<div class="stars">' + starString(r.stars) + '</div>' +
+      '<div class="review-text">' + escapeHtml(r.text || '') + '</div>';
+    list.appendChild(div);
+  });
+
+  return wrap;
+}
+
+document.getElementById('singleBtn').addEventListener('click', async () => {
+  const url = document.getElementById('singleUrl').value.trim();
+  const maxReviews = parseInt(document.getElementById('singleMax').value) || 10;
+  const sortBy = document.getElementById('singleSort').value;
+  const btn = document.getElementById('singleBtn');
+  const status = document.getElementById('singleStatus');
+  const results = document.getElementById('singleResults');
+
+  if (!url) { status.textContent = 'Renseigne une URL Google Maps.'; return; }
+
+  btn.disabled = true;
+  status.innerHTML = '<span class="spinner"></span> Scraping en cours (peut prendre jusqu\'à quelques minutes)…';
+  results.innerHTML = '';
+
+  const startedAt = Date.now();
+  try {
+    const res = await fetch(API_BASE + '/scrape', {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ url, max_reviews: maxReviews, sort_by: sortBy }),
+    });
+    const payload = await res.json();
+    const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
+    status.textContent = res.ok ? ('Terminé en ' + elapsed + 's') : ('Erreur HTTP ' + res.status + ' en ' + elapsed + 's');
+    results.appendChild(renderBusinessCard(payload, url));
+  } catch (e) {
+    status.textContent = 'Erreur réseau: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('batchBtn').addEventListener('click', async () => {
+  const raw = document.getElementById('batchUrls').value;
+  const urls = raw.split('\n').map(s => s.trim()).filter(Boolean);
+  const maxReviews = parseInt(document.getElementById('batchMax').value) || 10;
+  const sortBy = document.getElementById('batchSort').value;
+  const btn = document.getElementById('batchBtn');
+  const status = document.getElementById('batchStatus');
+  const results = document.getElementById('batchResults');
+
+  if (urls.length === 0) { status.textContent = 'Ajoute au moins une URL.'; return; }
+  if (urls.length > 10) { status.textContent = 'Maximum 10 URLs par batch.'; return; }
+
+  btn.disabled = true;
+  status.innerHTML = '<span class="spinner"></span> Scraping de ' + urls.length + ' URL(s) en parallèle…';
+  results.innerHTML = '';
+
+  const startedAt = Date.now();
+  try {
+    const res = await fetch(API_BASE + '/scrape-batch', {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ urls, max_reviews: maxReviews, sort_by: sortBy }),
+    });
+    const payload = await res.json();
+    const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
+
+    if (!res.ok) {
+      status.textContent = 'Erreur HTTP ' + res.status + ' en ' + elapsed + 's';
+      results.innerHTML = '<pre>' + escapeHtml(JSON.stringify(payload, null, 2)) + '</pre>';
+      return;
+    }
+
+    status.textContent = payload.succeeded + '/' + payload.total + ' réussis en ' + (payload.elapsedSeconds ?? elapsed) + 's';
+    (payload.results || []).forEach(r => {
+      results.appendChild(renderBusinessCard(r.success ? { success: true, data: r.data } : { success: false, error: r.error }, r.url));
+    });
+  } catch (e) {
+    status.textContent = 'Erreur réseau: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+
+</body>
+</html>
