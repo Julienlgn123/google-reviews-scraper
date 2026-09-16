@@ -1,6 +1,7 @@
 import express from 'express';
 import puppeteer from 'puppeteer';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -660,6 +661,60 @@ app.post('/scrape', async (req, res) => {
     console.error(`[${new Date().toISOString()}] Error /scrape:`, err.message);
     res.status(500).json({ success: false, error: err.message });
   }
+});
+
+// ─── Jobs asynchrones ──────────────────────────────────────────────────────────
+// POST /scrape-async répond immédiatement avec un jobId (le scrape tourne en
+// arrière-plan) ; GET /job/:id renvoie son état. Ça permet à un appelant avec
+// un budget de temps court (ex: une fonction serverless Vercel plafonnée à
+// 60s) de ne jamais attendre — il poll juste jusqu'à ce que ce soit prêt.
+// L'état vit en mémoire ici (ce process tourne en continu, contrairement à
+// une fonction serverless), et est nettoyé après JOB_TTL_MS.
+const jobs = new Map(); // jobId -> { status, data, error, createdAt }
+const JOB_TTL_MS = 10 * 60 * 1000;
+
+function createJob() {
+  const jobId = crypto.randomUUID();
+  jobs.set(jobId, { status: 'pending', data: null, error: null, createdAt: Date.now() });
+  setTimeout(() => jobs.delete(jobId), JOB_TTL_MS).unref();
+  return jobId;
+}
+
+app.post('/scrape-async', (req, res) => {
+  const { url, max_reviews = 20, sort_by = 'recent' } = req.body;
+
+  if (!url) return res.status(400).json({ error: 'Missing required field: url' });
+  if (!isValidGoogleMapsUrl(url)) {
+    return res.status(400).json({ error: 'URL must be a Google Maps link' });
+  }
+  if (!['recent', 'relevant'].includes(sort_by)) {
+    return res.status(400).json({ error: 'sort_by must be "recent" or "relevant"' });
+  }
+
+  const count = Math.min(Math.max(1, parseInt(max_reviews) || 20), 200);
+  const jobId = createJob();
+  console.log(`[${new Date().toISOString()}] /scrape-async  job=${jobId} url=${url} count=${count}`);
+
+  scrapeOnePage(url, count, sort_by)
+    .then((data) => {
+      jobs.set(jobId, { status: 'done', data, error: null, createdAt: jobs.get(jobId).createdAt });
+      console.log(`[${new Date().toISOString()}] job=${jobId} done: ${data.stats.totalRetrieved} avis — "${data.business.name}"`);
+    })
+    .catch((err) => {
+      jobs.set(jobId, { status: 'error', data: null, error: err.message, createdAt: jobs.get(jobId).createdAt });
+      console.error(`[${new Date().toISOString()}] job=${jobId} error:`, err.message);
+    });
+
+  res.status(202).json({ jobId, status: 'pending' });
+});
+
+app.get('/job/:id', (req, res) => {
+  const job = jobs.get(req.params.id);
+  if (!job) return res.status(404).json({ error: 'Job introuvable ou expiré' });
+
+  if (job.status === 'pending') return res.json({ status: 'pending' });
+  if (job.status === 'error') return res.json({ status: 'error', error: job.error });
+  res.json({ status: 'done', success: true, data: job.data });
 });
 
 // ─── POST /scrape-batch — jusqu'à 10 URLs en parallèle ───────────────────────
